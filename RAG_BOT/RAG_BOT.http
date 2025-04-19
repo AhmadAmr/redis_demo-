@@ -1,0 +1,6 @@
+@RAG_BOT_HostAddress = http://localhost:5117
+
+GET {{RAG_BOT_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
