@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using RAG_BOT.Repository;
+using WebhookAggergator.Models;
+using WebhookAggergator.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,6 +30,10 @@ builder.AddKeyedRedisClient(name: "cache");
 builder.AddKeyedRedisClient(name: "aggregation");
 builder.AddRedisDistributedCache(connectionName :"cache");
 
+
+builder.Services.AddSingleton<IMessageAggregator, MessageAggregator>();
+builder.Services.AddHostedService<MessageAggregator>();
+
 var app = builder.Build();
 
 app.MapDefaultEndpoints();
@@ -38,11 +44,21 @@ app.UseHttpsRedirection();
 
 
 
-//call this to reproduce error point to call redis service
-app.MapGet("/",  (RedisService redisService) =>
+
+app.MapPost("/ReceiveMessage", (MessengerWebHookModel request, IMessageAggregator aggregator) =>
 {
-    var values = redisService.GetAllKeys();
-    return Results.Ok(values);
+    foreach (var entry in request.Entry)
+    {
+        foreach (var messagingEvent in entry.Messaging)
+        {
+            if (messagingEvent.Message != null)
+            {
+                // Queue the message
+                aggregator.QueueMessage(messagingEvent.Sender.Id, messagingEvent.Message);
+            }
+        }
+    }
+    return Results.Ok();
 });
 
 
